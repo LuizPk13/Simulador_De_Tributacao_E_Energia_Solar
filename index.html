@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Simulador Solar e Tributação</title>
+  <meta name="description" content="Como cada regime tributário altera o retorno de um sistema solar de geração distribuída em Santa Catarina.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#resultado">Pular para o resultado</a>
+
+  <header class="top">
+    <div class="wrap top-inner">
+      <div class="title-block">
+        <p class="eyebrow">Geração distribuída · Santa Catarina</p>
+        <h1>Tributação e retorno da energia solar</h1>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="btn-present" class="btn-ghost" aria-pressed="false" title="Tecla P">Modo apresentação</button>
+        <button type="button" id="btn-theme" class="btn-ghost" aria-label="Alternar tema claro ou escuro">Tema escuro</button>
+      </div>
+    </div>
+    <div class="banner">
+      <div class="wrap">
+        Dados de Santa Catarina, <span id="data-date"></span> · valores marcados com <strong>*</strong> são estimativas
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section aria-labelledby="h-cenario" class="block">
+      <h2 id="h-cenario" class="sr-only">Escolha o cenário</h2>
+      <div id="scenario-buttons" class="scenarios" role="radiogroup" aria-label="Cenário tributário"></div>
+      <p class="hint hide-present">Teclas <kbd>1</kbd> a <kbd>4</kbd> trocam o cenário · <kbd>P</kbd> liga o modo apresentação</p>
+    </section>
+
+    <section id="resultado" aria-labelledby="h-resultado" class="block" tabindex="-1">
+      <h2 id="h-resultado" class="section-title"><span id="selected-name"></span></h2>
+      <div class="stats">
+        <div class="stat">
+          <p class="stat-label">Tempo de retorno</p>
+          <p class="stat-value"><span id="v-payback"></span></p>
+          <p class="stat-delta" id="d-payback"></p>
+        </div>
+        <div class="stat">
+          <p class="stat-label">Valor presente líquido em <span class="n-years"></span> anos</p>
+          <p class="stat-value"><span id="v-npv"></span></p>
+          <p class="stat-delta" id="d-npv"></p>
+        </div>
+        <div class="stat">
+          <p class="stat-label">Investimento inicial</p>
+          <p class="stat-value"><span id="v-inv"></span></p>
+          <p class="stat-delta" id="d-inv"></p>
+        </div>
+      </div>
+      <p class="sub-stat">Economia no ano 1: <strong id="v-sav"></strong> <span id="d-sav" class="muted"></span></p>
+      <p class="note" id="estimate-note"></p>
+    </section>
+
+    <section class="block chart-block chart-main" aria-labelledby="h-line">
+      <h2 id="h-line" class="chart-title">Quando o investimento se paga</h2>
+      <p class="chart-sub">Fluxo de caixa acumulado descontado, em R$. O ponto marca o ano em que cada cenário cruza o zero.</p>
+      <div class="chart-box tall"><canvas id="chart-line" role="img" aria-label="Fluxo de caixa acumulado descontado por cenário"></canvas></div>
+    </section>
+
+    <div class="chart-grid">
+      <section class="block chart-block" aria-labelledby="h-bars">
+        <h2 id="h-bars" class="chart-title">Tempo de retorno por cenário</h2>
+        <p class="chart-sub">Anos até recuperar o investimento, do mais rápido ao mais lento.</p>
+        <div class="chart-box"><canvas id="chart-bars" role="img" aria-label="Tempo de retorno por cenário"></canvas></div>
+      </section>
+
+      <section class="block chart-block" aria-labelledby="h-bridge">
+        <h2 id="h-bridge" class="chart-title">O que cada tributo muda no VPL</h2>
+        <p class="chart-sub" id="bridge-sub"></p>
+        <div class="chart-box"><canvas id="chart-bridge" role="img" aria-label="Efeito de cada tributo sobre o valor presente líquido"></canvas></div>
+      </section>
+
+      <section class="block chart-block span-2" aria-labelledby="h-sens">
+        <h2 id="h-sens" class="chart-title">E se a alíquota de IBS/CBS for outra?</h2>
+        <p class="chart-sub">Tempo de retorno conforme a alíquota somada de IBS e CBS. A linha vertical marca o valor usado no simulador; o Senado fixa a CBS de 2027 até 15/12/2026.</p>
+        <div class="chart-box"><canvas id="chart-sens" role="img" aria-label="Tempo de retorno conforme a alíquota de IBS e CBS"></canvas></div>
+      </section>
+    </div>
+
+    <section class="block hide-present" aria-labelledby="h-table">
+      <h2 id="h-table" class="section-title">Comparação dos cenários</h2>
+      <div class="table-scroll">
+        <table class="compare" id="compare-table">
+          <thead>
+            <tr>
+              <th scope="col">Cenário</th>
+              <th scope="col" class="num">Investimento</th>
+              <th scope="col" class="num">Economia no ano 1</th>
+              <th scope="col" class="num">Tempo de retorno</th>
+              <th scope="col" class="num">VPL</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <details class="block params hide-present" id="params">
+      <summary>Parâmetros do modelo</summary>
+      <div class="params-body">
+        <div class="params-actions">
+          <button type="button" id="btn-reset" class="btn">Restaurar valores padrão</button>
+          <span id="reset-status" class="muted" role="status"></span>
+        </div>
+
+        <h3>Entradas globais</h3>
+        <div class="fields" id="global-fields"></div>
+
+        <h3>Alíquota de IBS + CBS</h3>
+        <div class="fields">
+          <div class="field">
+            <label for="f-ibscbs">Alíquota somada de IBS e CBS<span class="star">*</span></label>
+            <div class="input-unit"><input id="f-ibscbs" inputmode="decimal" autocomplete="off"><span>%</span></div>
+            <p class="field-help">Estimativa de out/2026: CBS 9,21% + IBS 18,7%. Vale para todo campo marcado “= IBS/CBS”.</p>
+          </div>
+        </div>
+
+        <h3>Cenários tributários</h3>
+        <p class="muted small">Alíquotas efetivas, em % sobre o valor sem tributos.</p>
+        <div class="table-scroll">
+          <table class="scen-table" id="scenario-fields">
+            <thead>
+              <tr>
+                <th scope="col">Cenário</th>
+                <th scope="col">Equipamentos</th>
+                <th scope="col">Conta de luz</th>
+                <th scope="col">Energia compensada</th>
+                <th scope="col">TUSD compensada</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  </main>
+
+  <footer class="foot hide-present">
+    <div class="wrap foot-grid">
+      <div>
+        <h2>Limitações do modelo</h2>
+        <ul>
+          <li>Supõe que toda a energia gerada é consumida ou compensada.</li>
+          <li>Não modela a cobrança gradual do Fio B (Lei 14.300/2022), custo de disponibilidade, bandeiras tarifárias nem financiamento.</li>
+          <li>Usa ICMS de 17%, alíquota sobre o consumo acima de 150 kWh/mês, que é a parte que a geração solar substitui. Até 150 kWh/mês, SC cobra 12%.</li>
+          <li>Na ponte de VPL, o efeito de cada tributo é medido aplicando as mudanças em sequência; a ordem altera a divisão entre os passos, não o total.</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Normas</h2>
+        <ul>
+          <li>Convênio ICMS 101/1997 e Convênio ICMS 16/2015 (CONFAZ)</li>
+          <li>Lei SC 17.762/2019 · Lei 13.169/2015 · Lei 14.300/2022</li>
+          <li>EC 132/2023 · LC 214/2025, art. 28</li>
+          <li>STJ, Tema 986 (ICMS sobre TUSD, mar/2024)</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Fontes dos dados</h2>
+        <ul>
+          <li>Tarifa Celesc B1, vigência 22/08/2026 a 21/08/2027</li>
+          <li>Alíquotas de ICMS e PIS/Cofins: fatura Celesc de 10/2026</li>
+          <li>ICMS sobre TUSD compensada: fatura Celesc de 02/2020</li>
+          <li>Custo por Wp: Radar Solfácil, 1º tri/2026 (média nacional)</li>
+          <li>Geração: sistema da UFSC em Florianópolis (Anais CBENS)</li>
+          <li>IBS e CBS: estimativas não oficiais, Senado Notícias, 26/10/2026</li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+
+  <script src="vendor/chart.umd.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/calc.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
